@@ -226,7 +226,7 @@ You can visualize the evalutation results with ```visualize_results.ipynb``` and
 Here, we provide an additional option ```--partial``` to training the model with only part of the original dataset. If we set ```partial``` within the range (0, 1), it will use corresponding part of original training data. But the full validation dataset is still used for evaluation.
 
 ```
-CUDA_VISIBLE_DEVICES=0,1 python train_dual_model.py --path_opt options/dual_model_MUTAN_skipthought.yaml --dual_training --share_embeddings --partial 0.5 --dir_logs logs/dual_model/iQAN_Mutan_skipthought_partial_0_5
+CUDA_VISIBLE_DEVICES=0,1 python train_dual_model.py --path_opt options/dual_model/dual_model_MUTAN_skipthought.yaml --dual_training --share_embeddings --partial 0.5 --dir_logs logs/dual_model/iQAN_Mutan_skipthought_partial_0_5
 ```
 
 #### Generate questions based on answers
