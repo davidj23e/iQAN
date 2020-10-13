@@ -11,6 +11,7 @@ from ..lib import utils
 from .images import ImagesFolder, AbstractImagesDataset, default_loader
 from .features import FeaturesDataset
 
+
 def split_name(data_split):
     if data_split in ['train', 'val']:
         return data_split + '2014'
@@ -26,20 +27,25 @@ class COCOImages(AbstractImagesDataset):
         super(COCOImages, self).__init__(data_split, opt, transform, loader)
         self.split_name = split_name(self.data_split)
         self.dir_split = os.path.join(self.dir_raw, self.split_name)
-        self.dataset = ImagesFolder(self.dir_split, transform=self.transform, loader=self.loader)
+        self.dataset = ImagesFolder(
+            self.dir_split, transform=self.transform, loader=self.loader)
         self.name_to_index = self._load_name_to_index()
 
     def _raw(self):
         if self.data_split in ['train', 'val']:
-            os.system('wget http://msvocds.blob.core.windows.net/coco2014/{}.zip -P {}'.format(self.split_name, self.dir_raw))
+            os.system(
+                'wget http://images.cocodataset.org/zips/{}.zip -P {}'.format(self.split_name, self.dir_raw))
         elif self.data_split == 'test':
-            os.execute('wget http://msvocds.blob.core.windows.net/coco2015/test2015.zip -P '+self.dir_raw)
+            os.execute(
+                'wget http://images.cocodataset.org/zips/test2015.zip -P '+self.dir_raw)
         else:
             assert False, 'data_split {} not exists'.format(self.data_split)
-        os.execute('unzip '+os.path.join(self.dir_raw, self.split_name+'.zip')+' -d '+self.dir_raw)
+        os.execute('unzip '+os.path.join(self.dir_raw,
+                                         self.split_name+'.zip')+' -d '+self.dir_raw)
 
     def _load_name_to_index(self):
-        self.name_to_index = {name:index for index, name in enumerate(self.dataset.imgs)}
+        self.name_to_index = {name: index for index,
+                              name in enumerate(self.dataset.imgs)}
         return self.name_to_index
 
     def __getitem__(self, index):
@@ -85,10 +91,11 @@ def default_transform(size):
         transforms.Scale(size),
         transforms.CenterCrop(size),
         transforms.ToTensor(),
-        transforms.Normalize(mean=[0.485, 0.456, 0.406], # resnet imagnet
+        transforms.Normalize(mean=[0.485, 0.456, 0.406],  # resnet imagnet
                              std=[0.229, 0.224, 0.225])
     ])
     return transform
+
 
 def factory(data_split, opt, transform=None):
     if data_split == 'trainval':
