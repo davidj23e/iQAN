@@ -61,18 +61,16 @@ First install python 3 (we don't provide support for python 2). We advise you to
 - [pytorch with CUDA](http://pytorch.org)
 
 ```
-conda create --name vqa python=3
-source activate vqa
-conda install pytorch torchvision cuda80 -c soumith
+conda env create -f environment.yml
+conda activate vqa2
 ```
 
 Then clone the repo (with the `--recursive` flag for submodules) and install the complementary requirements:
 
 ```
 cd $HOME
-git clone --recursive https://github.com/yikang-li/iQAN.git
+git clone --recursive https://github.com/davidj23e/iQAN.git
 cd iQAN
-pip install -r requirements.txt
 ```
 
 ### Submodules
@@ -88,7 +86,7 @@ VQA 2.0 Data will be automaticaly downloaded and preprocessed when needed.
 For [CLEVR](http://cs.stanford.edu/people/jcjohns/clevr/) dataset:
 - Dowload the full dataset:
 ```
-wget https://s3-us-west-1.amazonaws.com/clevr/CLEVR_v1.0.zip
+wget https://dl.fbaipublicfiles.com/clevr/CLEVR_v1.0.zip
 unzip CLEVR_v1.0
 mkdir -p data/clevr/annotations
 cd data/clevr/annotations
@@ -163,31 +161,31 @@ We have several options to enable/disable different settings:
 Training the Mutan VQA with Dual Training scheme:
 
 ```
-CUDA_VISIBLE_DEVICES=0,1 python train_dual_model.py --path_opt options/dual_model_MUTAN_skipthought.yaml --dual_training --share_embeddings
+CUDA_VISIBLE_DEVICES=0,1 python train_dual_model.py --path_opt options/dual_model/dual_model_MUTAN_skipthought.yaml --dual_training --share_embeddings
 ```
 
 You can set the ```share_modules``` to ```False``` to train a baseline Mutan VQA model.
 ```
-CUDA_VISIBLE_DEVICES=0,1 python train_dual_model.py --path_opt options/dual_model_MUTAN_skipthought.yaml
+CUDA_VISIBLE_DEVICES=0,1 python train_dual_model.py --path_opt options/dual_model/dual_model_MUTAN_skipthought.yaml
 ```
 
 Training the MLB VQA with Dual Training scheme:
 
 ```
-CUDA_VISIBLE_DEVICES=0,1 python train_dual_model.py --path_opt options/dual_model_MLB.yaml --dual_training --share_embeddings
+CUDA_VISIBLE_DEVICES=0,1 python train_dual_model.py --path_opt options/dual_model/dual_model_MLB.yaml --dual_training --share_embeddings
 ```
 
 Training the iBOWIMG VQA with Dual Training scheme:
 
 ```
-CUDA_VISIBLE_DEVICES=0,1 python train_dual_model.py --path_opt options/dual_model_iBOWIMG.yaml --dual_training --share_embeddings
+CUDA_VISIBLE_DEVICES=0,1 python train_dual_model.py --path_opt options/dual_model/dual_model_iBOWIMG.yaml --dual_training --share_embeddings
 ```
 
 #### Train models on CLEVR
 Training the Mutan VQA with Dual Training scheme:
 
 ```
-CUDA_VISIBLE_DEVICES=0,1 python train_dual_model.py --path_opt options/CLEVR/dual_model_MUTAN_skipthought.yaml --dual_training --share_embeddings
+CUDA_VISIBLE_DEVICES=0,1 python train_dual_model.py --path_opt options/dual_model/CLEVR/dual_model_MUTAN_skipthought.yaml --dual_training --share_embeddings
 ```
 
 
@@ -196,13 +194,13 @@ CUDA_VISIBLE_DEVICES=0,1 python train_dual_model.py --path_opt options/CLEVR/dua
 Restart the model from the last checkpoint.
 
 ```
-python train.py --path_opt options/dual_model_MUTAN_skipthought.yaml --dir_logs logs/dual_model/iQAN_Mutan_skipthought --resume ckpt
+python train.py --path_opt options/dual_model/dual_model_MUTAN_skipthought.yaml --dir_logs logs/dual_model/iQAN_Mutan_skipthought --resume ckpt
 ```
 
 Restart the model from the best checkpoint.
 
 ```
-python train.py --path_opt options/dual_model_MUTAN_skipthought.yaml --dir_logs logs/dual_model/iQAN_Mutan_skipthought --resume best
+python train.py --path_opt options/dual_model/dual_model_MUTAN_skipthought.yaml --dir_logs logs/dual_model/iQAN_Mutan_skipthought --resume best
 ```
 
 #### Evaluate models on VQA
@@ -210,7 +208,7 @@ python train.py --path_opt options/dual_model_MUTAN_skipthought.yaml --dir_logs 
 Evaluate the model from the best checkpoint.
 
 ```
-python train.py --path_opt options/dual_model_MUTAN_skipthought.yaml --dir_logs logs/dual_model/iQAN_Mutan_skipthought --resume best -e
+python train.py --path_opt options/dual_model/dual_model_MUTAN_skipthought.yaml --dir_logs logs/dual_model/iQAN_Mutan_skipthought --resume best -e
 ```
 
 ### Qualitative Results:
@@ -235,7 +233,7 @@ CUDA_VISIBLE_DEVICES=0,1 python train_dual_model.py --path_opt options/dual_mode
 Here, we should modify the code. Change evaluation data_loader to train_loader, from ```engine.evaluate(test_loader, model, exp_logger, args.print_freq)``` to ```engine.evaluate(train_loader, model, exp_logger, args.print_freq)```. Then run the evaluation command:
 
 ```
-python train.py --path_opt options/dual_model_MUTAN_skipthought.yaml --dir_logs logs/dual_model/iQAN_Mutan_skipthought_partial_0_5 --resume best -e
+python train.py --path_opt options/dual_model/dual_model_MUTAN_skipthought.yaml --dir_logs logs/dual_model/iQAN_Mutan_skipthought_partial_0_5 --resume best -e
 ```
 
 #### Re-package an augmented dataset
@@ -246,13 +244,13 @@ Then replace the ```trainset.pickle``` at ```./data/vqa2/processed/nans,2000_max
 #### Pretrain
 We pretrain the model on the combined annotated half and augmented half.
 ```
-CUDA_VISIBLE_DEVICES=0,1 python train_dual_model.py --path_opt options/dual_model_MUTAN_skipthought.yaml --dual_training --share_embeddings --dir_logs logs/dual_model/iQAN_Mutan_skipthought_augmented_pretrain
+CUDA_VISIBLE_DEVICES=0,1 python train_dual_model.py --path_opt options/dual_model/dual_model_MUTAN_skipthought.yaml --dual_training --share_embeddings --dir_logs logs/dual_model/iQAN_Mutan_skipthought_augmented_pretrain
 ```
 
 #### Finetuning
 Then finetune the model with the clean (annotated) part, don't forget the enlarge the ```epochs``` enough for training:
 ```
-CUDA_VISIBLE_DEVICES=0,1 python train_dual_model.py --path_opt options/dual_model_MUTAN_skipthought.yaml --dual_training --share_embeddings --partial 0.5 --dir_logs logs/dual_model/iQAN_Mutan_skipthought_augmented_pretrain --resume best
+CUDA_VISIBLE_DEVICES=0,1 python train_dual_model.py --path_opt options/dual_model/dual_model_MUTAN_skipthought.yaml --dual_training --share_embeddings --partial 0.5 --dir_logs logs/dual_model/iQAN_Mutan_skipthought_augmented_pretrain --resume best
 ```
 
 #### Results
