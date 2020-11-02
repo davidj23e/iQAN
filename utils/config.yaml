@@ -1,0 +1,11 @@
+utils_path : utils
+train_qid: \qid\finetune_qids.json
+val_qid: \qid\test_qids.json
+
+train_original :  \pickle_dataset\trainset.pickle
+val_original :  \pickle_dataset\valset.pickle
+
+train_modified : \pickle_modified\trainset.pickle
+val_modified :  \pickle_modified\valset.pickle
+
+destination : data\vqa2\processed\nans,2500_maxlength,17_minwcount,10_nlp,nltk_pad,right_trainsplit,train_filter_questions
