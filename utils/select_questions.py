@@ -70,7 +70,7 @@ def filter_questions(config, dataset):
 
 
 if __name__ == "__main__":
-    path = open('path.yaml', 'r')
+    path = open('config.yaml', 'r')
     config = yaml.safe_load(path)
 
     # create directories
