@@ -11,7 +11,7 @@ from nltk.translate.bleu_score import modified_precision as bleu_score
 from models.criterions import *
 from models.utils import translate_tokens, calculate_bleu_score
 
-
+import vqa.lib.logger as logger2
 
 def train(loader, model, optimizer, logger, epoch, print_freq=10, dual_training=False, alternative_train = -1.):
     # switch to train mode
@@ -179,6 +179,15 @@ def evaluate(loader, model, logger, print_freq=10, sampling_num=5):
     model.eval()
     model.module.set_testing(True, sample_num=sampling_num)
     meters = logger.reset_meters('test')
+
+    meters['Bleu_1']=logger2.AvgMeter()
+    meters['Bleu_2']=logger2.AvgMeter()
+    meters['Bleu_3']=logger2.AvgMeter()
+    meters['Bleu_4']=logger2.AvgMeter()
+    meters['METEOR']=logger2.AvgMeter()
+    meters['ROUGE_L']=logger2.AvgMeter()
+    meters['CIDEr']=logger2.AvgMeter()
+
     results = []
     end = time.time()
     blue_score_all = 0
@@ -189,6 +198,8 @@ def evaluate(loader, model, logger, print_freq=10, sampling_num=5):
         input_answer = Variable(sample['answer'].cuda(async=True), volatile=True)
         target_answer = sample['answer']
         input_question = Variable(sample['question'].cuda(async=True), volatile=True)
+        nlg_metrics = calculate_nlg_score(generated_q.cpu().data, sample['question'], loader.dataset.wid_to_word)
+
         output_answer, g_answers, g_answers_score, generated_q = model(input_visual, input_question, input_answer)
         bleu_score = calculate_bleu_score(generated_q.cpu().data, sample['question'], loader.dataset.wid_to_word)
         acc1, acc5, acc10 = utils.accuracy(output_answer.cpu().data, target_answer, topk=(1, 5, 10))
@@ -196,6 +207,14 @@ def evaluate(loader, model, logger, print_freq=10, sampling_num=5):
         meters['acc5'].update(acc5[0], n=batch_size)
         meters['acc10'].update(acc10[0], n=batch_size)
         meters['bleu_score'].update(bleu_score, n=batch_size)
+        meters['Bleu_1'].update(nlg_metrics['Bleu_1'], n=batch_size)
+        meters['Bleu_2'].update(nlg_metrics['Bleu_2'], n=batch_size)
+        meters['Bleu_3'].update(nlg_metrics['Bleu_3'], n=batch_size)
+        meters['Bleu_4'].update(nlg_metrics['Bleu_4'], n=batch_size)
+        meters['METEOR'].update(nlg_metrics['METEOR'], n=batch_size)
+        meters['ROUGE_L'].update(nlg_metrics['ROUGE_L'], n=batch_size)
+        meters['CIDEr'].update(nlg_metrics['CIDEr'], n=batch_size)
+
         g_answers = g_answers.cpu().data
         g_answers_score = g_answers_score.cpu().data
 
@@ -224,9 +243,23 @@ def evaluate(loader, model, logger, print_freq=10, sampling_num=5):
     print('* [Evaluation] Result: Acc@1:{acc1.avg:.3f}\t'
           'Acc@5:{acc5.avg:.3f}\tAcc@10:{acc10.avg:.3f}\t'
           'Time: {batch_time.avg:.3f}\t'
+          'Bleu_1: {Bleu_1.avg:.5f}\t'
+          'Bleu_2: {Bleu_2.avg:.5f}\t'
+          'Bleu_3: {Bleu_3.avg:.5f}\t'
+          'Bleu_4: {Bleu_4.avg:.5f}\t'
+          'METEOR: {METEOR.avg:.5f}\t'
+          'ROUGE_L: {ROUGE_L.avg:.5f}\t'
+          'CIDEr: {CIDEr.avg:.5f}\t'
           'BLEU: {bleu_score.avg:.5f}'.format(
           acc1=meters['acc1'], acc5=meters['acc5'], acc10=meters['acc10'], 
           batch_time=meters['batch_time'], 
+          Bleu_1=meters['Bleu_1'], 
+          Bleu_2=meters['Bleu_2'], 
+          Bleu_3=meters['Bleu_3'], 
+          Bleu_4=meters['Bleu_4'], 
+          METEOR=meters['METEOR'], 
+          ROUGE_L=meters['ROUGE_L'], 
+          CIDEr =meters['CIDEr'], 
           bleu_score=meters['bleu_score']))
 
     model.module.set_testing(False)

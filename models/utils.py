@@ -8,6 +8,7 @@ import math
 from nltk.translate.bleu_score import SmoothingFunction, sentence_bleu
 import pdb
 
+from nlgeval import compute_metrics,compute_individual_metrics
 
 __optimizers = {
     'SGD': torch.optim.SGD,
@@ -53,7 +54,25 @@ def translate_tokens(token_seq, wid_to_word, end_id = 0):
         sentence.append(wid_to_word[wid])
     return sentence
 
-
+def calculate_nlg_score(generated_question_tensor, reference_question_tensor, wid_to_word):
+    batch_size = generated_question_tensor.size(0)
+    bleu_score = 0
+    metrics =[]
+    val = {}
+    for j in range(batch_size):
+            sampled_aqa = []
+            new_question = translate_tokens(generated_question_tensor[j].tolist(), wid_to_word)
+            ref_question = translate_tokens(reference_question_tensor[j][1:].tolist(), wid_to_word)
+            if(len(val.keys())==0):
+                val.update(compute_individual_metrics(' '.join(ref_question),' '.join(new_question)))
+            else:
+                temp=compute_individual_metrics(' '.join(ref_question),' '.join(new_question))
+                for key in temp.keys():
+                    val[key]+=temp[key]
+            # print(val['METEOR'])
+    for key in temp.keys():
+        val[key]=val[key]/batch_size
+    return val
 def calculate_bleu_score(generated_question_tensor, reference_question_tensor, wid_to_word):
     batch_size = generated_question_tensor.size(0)
     bleu_score = 0.
