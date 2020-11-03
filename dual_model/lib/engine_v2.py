@@ -248,7 +248,7 @@ def evaluate(loader, model, logger, print_freq=10, sampling_num=5):
           'Bleu_3: {Bleu_3.avg:.5f}\t'
           'Bleu_4: {Bleu_4.avg:.5f}\t'
           'METEOR: {METEOR.avg:.5f}\t'
-          'ROUGE_L: {ROUGE_L.avg:.5f}\t'
+          'ROUGE_L: {ROUGE_L.avg:.5f}\t '
           'CIDEr: {CIDEr.avg:.5f}\t'
           'BLEU: {bleu_score.avg:.5f}'.format(
           acc1=meters['acc1'], acc5=meters['acc5'], acc10=meters['acc10'], 
