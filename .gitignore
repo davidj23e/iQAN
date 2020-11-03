@@ -5,6 +5,10 @@ data/vqa
 data/vqa2
 data/clevr
 
+utils/qid
+utils/pickle_dataset
+utils/pickle_modified
+
 logs/porting
 logs/vqa_old
 logs/vqa
@@ -22,3 +26,6 @@ __pycache__/
 
 .ipynb_checkpoints
 
+utils/pre_trained_model/
+file_log.txt
+UT/

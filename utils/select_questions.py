@@ -5,14 +5,29 @@ import yaml
 import os
 
 
+# Command Line Options
+parser=argparse.ArgumentParser(description="Select Questions/Prepare model for FineTuning")
+
+# {train,val}
+parser.add_argument("--filter",action='store',type=str,help='select the dataset to be filtered')
+parser.add_argument("--replace",action='store',type=str,help='select the dataset to be replaced')
+parser.add_argument("--reset",action='store_true',help='reset finetuning')
+
+
+args=parser.parse_args()
+
 # Replaced the model dataset with modified data
 # type={train,original}
-def replace_data(config, type='modified'):
-    os.system("mv "+config['utils_path']+config['train_'+type]
-              + " "+config['destination']+'trainset.pickle')
-    os.system("mv "+config['utils_path']+config['val_'+type]
-              + " "+config['destination']+'valset.pickle')
+def replace_data(config,dataset,typet='modified'):    
+    os.system("mv -v "+config['utils_path']+config[dataset+"_"+typet]
+              + " "+config['destination']+'/'+dataset+'set.pickle')
+    print('Replaced',dataset,'data !')
 
+# Restore the pre-trained model
+def reset(config):
+    os.system("rm -rf "+config['model_folder'])
+    os.system("cp -Rv "+config['utils_path']+config['pre_trained']+"/* "+config['model_parent'])
+    print('Restored pre-trained config')
 
 # Filtering Question from VQA dataset
 # dataset = {train,val}
@@ -24,17 +39,18 @@ def filter_questions(config, dataset):
         f = open(path, 'r')
         qids = json.load(f)
 
-        fp = open(config['train_original'], 'rb')
+        fp = open(config['utils_path']+config['train_original'], 'rb')
         data = pickle.load(fp)
 
+        # Filter Question IDS
         mod_data = []
         count = 0
         for element in data:
             if(element['question_id'] in qids):
                 count += 1
                 mod_data.append(element)
-                print("\r Count : ", count, end="")
-        print("\n")
+                print("\rTrainset Count : ", count, end="")
+        print()
 
         f.close()
         fp.close()
@@ -49,17 +65,18 @@ def filter_questions(config, dataset):
         f = open(path, 'r')
         qids = json.load(f)
 
-        fp = open(config['val_original'], 'rb')
+        fp = open(config['utils_path']+config['val_original'], 'rb')
         data = pickle.load(fp)
 
+        # Filter Question IDS
         mod_data = []
         count = 0
         for element in data:
             if(element['question_id'] in qids):
                 count += 1
                 mod_data.append(element)
-                print("\r Count : ", count, end="")
-        print("\n")
+                print("\rValset Count : ", count, end="")
+        print()
 
         f.close()
         fp.close()
@@ -70,14 +87,23 @@ def filter_questions(config, dataset):
 
 
 if __name__ == "__main__":
-    path = open('config.yaml', 'r')
+    path = open('utils/config.yaml', 'r')
     config = yaml.safe_load(path)
 
     # create directories
-    os.system("mkdir -p "+config['utils_path']+"\\"+"pickle_modified")
-    os.system("mkdir -p "+config['utils_path']+"\\"+"pickle_dataset")
-    os.system("mkdir -p "+config['utils_path']+"\\"+"qid")
+    os.system("mkdir -p "+config['utils_path']+"/""pickle_modified")
+    os.system("mkdir -p "+config['utils_path']+"/"+"pickle_dataset")
+    os.system("mkdir -p "+config['utils_path']+"/"+"qid")
+    os.system("mkdir -p "+config['utils_path']+"/"+"pre_trained_model")
 
-    filter_questions(config, 'train')
-    filter_questions(config, 'val')
-    # replace_data(config)
+    # Filter dataset with qids
+    if(args.filter is not None):
+        filter_questions(config,args.filter)
+
+    # Replace dataset with modified dataset
+    if(args.replace is not None):
+        replace_data(config,args.replace)
+
+    # Restore pretrained model
+    if(args.reset):
+        reset(config)
