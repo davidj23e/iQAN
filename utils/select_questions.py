@@ -24,9 +24,9 @@ def replace_data(config,dataset,typet='modified'):
     if typet=='original':
         os.system("yes | cp -fv "+config['utils_path']+config[dataset+"_"+typet]
         + " "+config['destination']+'/'+dataset+'set.pickle')
-
-    os.system("mv -v "+config['utils_path']+config[dataset+"_"+typet]
-              + " "+config['destination']+'/'+dataset+'set.pickle')
+    else:
+        os.system("mv -v "+config['utils_path']+config[dataset+"_"+typet]
+        + " "+config['destination']+'/'+dataset+'set.pickle')
     print('Replaced',dataset,'data !')
 
 # Restore the pre-trained model
