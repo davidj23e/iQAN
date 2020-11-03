@@ -12,6 +12,8 @@ parser=argparse.ArgumentParser(description="Select Questions/Prepare model for F
 parser.add_argument("--filter",action='store',type=str,help='select the dataset to be filtered')
 parser.add_argument("--replace",action='store',type=str,help='select the dataset to be replaced')
 parser.add_argument("--reset",action='store_true',help='reset finetuning')
+parser.add_argument("--original",action='store_true',help='use unfiltered VQA dataset')
+parser.add_argument("--copy",action='store_true',help='create copy of pre-trained model')
 
 
 args=parser.parse_args()
@@ -19,6 +21,10 @@ args=parser.parse_args()
 # Replaced the model dataset with modified data
 # type={train,original}
 def replace_data(config,dataset,typet='modified'):    
+    if typet=='original':
+        os.system("yes | cp -fv "+config['utils_path']+config[dataset+"_"+typet]
+        + " "+config['destination']+'/'+dataset+'set.pickle')
+
     os.system("mv -v "+config['utils_path']+config[dataset+"_"+typet]
               + " "+config['destination']+'/'+dataset+'set.pickle')
     print('Replaced',dataset,'data !')
@@ -28,6 +34,11 @@ def reset(config):
     os.system("rm -rf "+config['model_folder'])
     os.system("cp -Rv "+config['utils_path']+config['pre_trained']+"/* "+config['model_parent'])
     print('Restored pre-trained config')
+
+def copy_data(config):
+    os.system("rm -rf "+config['utils_path']+config['pre_trained']+"/*")
+    os.system("cp -Rv "+config['model_folder']+" "+config['utils_path']+config['pre_trained'])
+    print('Copied trained model to pre-train directory')
 
 # Filtering Question from VQA dataset
 # dataset = {train,val}
@@ -104,6 +115,15 @@ if __name__ == "__main__":
     if(args.replace is not None):
         replace_data(config,args.replace)
 
+    # Use unfiltered VQA 
+    if(args.original):
+        replace_data(config,'train','original')
+        replace_data(config,'val','original')
+    
+    if(args.copy):
+        copy_data(config)
+
+    print(args)
     # Restore pretrained model
     if(args.reset):
         reset(config)

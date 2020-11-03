@@ -2,6 +2,8 @@ utils_path : utils
 
 #Path for pre-train/finetuning qids
 train_qid: /qid/train_qids.json
+# train_qid: /qid/finetune_qids.json
+
 #Path for validation/test qids
 val_qid: /qid/test_qids.json
 
