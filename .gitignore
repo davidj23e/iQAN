@@ -1,0 +1,5 @@
+*.pyc
+*.pickle
+*.hdf5
+*.json
+*.npy
