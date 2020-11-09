@@ -1,0 +1,26 @@
+utils_path : utils
+
+#Path for pre-train/finetuning qids
+train_qid: /qid/train_qids.json
+# train_qid: /qid/finetune_qids.json
+
+#Path for validation/test qids
+val_qid: /qid/test_qids.json
+
+# VQA2 dataset
+train_original : /pickle_dataset/trainset.pickle
+val_original :  /pickle_dataset/valset.pickle
+
+# Filtered VQA2 dataset
+train_modified : /pickle_modified/trainset.pickle
+val_modified :  /pickle_modified/valset.pickle
+
+# Processed VQA destination
+destination : data/vqa2/processed/nans,2500_maxlength,17_minwcount,10_nlp,nltk_pad,right_trainsplit,train_filter_questions
+
+# Pre-trained Model Location
+pre_trained : /pre_trained_model
+
+# Pre-trained destination
+model_folder : logs/dual_model/iQAN_Mutan_skipthought_mod_dual_training
+model_parent : logs/dual_model/
