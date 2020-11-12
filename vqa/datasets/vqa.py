@@ -18,6 +18,7 @@ from . import coco
 from . import vgenome
 from . import clevr
 
+download=False
 
 class AbstractVQA(AbstractVQADataset):
 
@@ -145,6 +146,8 @@ class VQA(AbstractVQA):
         super(VQA, self).__init__(data_split, opt, dataset_img)
 
     def _raw(self):
+        if not download:
+            return
         dir_zip = os.path.join(self.dir_raw, 'zip')
         dir_ann = os.path.join(self.dir_raw, 'annotations')
         os.system('mkdir -p '+dir_zip)
@@ -171,9 +174,13 @@ class VQA(AbstractVQA):
                                         'Annotations_Val_mscoco.zip')+' -d '+dir_ann)
 
     def _interim(self, select_questions=False):
+        if not download:
+            return
         vqa_interim(self.opt['dir'], select_questions=select_questions)
 
     def _processed(self):
+        if not download:
+            return
         vqa_processed(self.opt)
 
 
@@ -183,6 +190,9 @@ class VQA2(AbstractVQA):
         super(VQA2, self).__init__(data_split, opt, dataset_img)
 
     def _raw(self):
+        if not download:
+            return
+        
         dir_zip = os.path.join(self.dir_raw, 'zip')
         dir_ann = os.path.join(self.dir_raw, 'annotations')
         os.system('mkdir -p '+dir_zip)
@@ -221,9 +231,13 @@ class VQA2(AbstractVQA):
                        + os.path.join(dir_ann, 'OpenEnded_mscoco_test-dev2015_questions.json'))
 
     def _interim(self, select_questions=False):
+        if not download:
+            return
         vqa2_interim(self.opt['dir'], select_questions=select_questions)
 
     def _processed(self):
+        if not download:
+            return
         vqa_processed(self.opt)
 
 
