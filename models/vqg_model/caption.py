@@ -33,7 +33,7 @@ class CaptionModel(nn.Module):
         return pred
 
     def generate(self, img, scale_size=256, crop_size=224,
-                 eos_token='EOS', unk_token = 'UNK', beam_size=3,
+                 eos_token='<end>', unk_token = '<unk>', beam_size=3,
                  max_caption_length=20,
                  length_normalization_factor=0.0, include_unknown = False):
 

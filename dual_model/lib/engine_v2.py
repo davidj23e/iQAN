@@ -13,26 +13,125 @@ from models.utils import translate_tokens, calculate_bleu_score
 
 import vqa.lib.logger as logger2
 
-def train(loader, model, optimizer, logger, epoch, print_freq=10, dual_training=False, alternative_train = -1.):
+# def train(loader, model, optimizer, logger, epoch, print_freq=10, dual_training=False, alternative_train = -1.):
+#     # switch to train mode
+#     model.train()
+#     model.set_testing(False)
+
+#     meters = logger.reset_meters('train')
+#     end = time.time()
+#     for i, sample in enumerate(loader):
+
+#         batch_size = sample['visual'].size(0)
+
+#         # measure data loading time
+#         meters['data_time'].update(time.time() - end, n=batch_size)
+#         target_question = sample['question']
+#         # To arrange the length of mini-batch by the descending order of question length
+#         new_ids, lengths = process_lengths_sort(target_question) 
+#         new_ids = Variable(new_ids).detach()
+#         target_question = Variable(target_question.cuda())
+#         input_visual = Variable(sample['visual'].cuda())
+#         target_answer = Variable(sample['answer'].cuda( ))
+        
+#         # compute output
+#         output =  model(input_visual, target_question, target_answer)
+#         generated_a = output[0]
+#         generated_q = output[1]
+#         additional_loss =output[2].mean()
+#         torch.cuda.synchronize()
+        
+#         # Hack for the compatability of reinforce() and DataParallel()
+#         target_question = pack_padded_sequence(target_question.index_select(0, new_ids)[:, 1:], lengths, batch_first=True)[0]
+#         output = pack_padded_sequence(generated_q.index_select(0, new_ids), lengths, batch_first=True)[0] 
+#         loss_q = F.cross_entropy(output, target_question)
+#         loss_a = F.cross_entropy(generated_a, target_answer)
+#         if alternative_train > 1. or alternative_train < 0.:
+#           loss = loss_a + loss_q 
+#           if dual_training:
+#             loss += additional_loss
+#         else:
+#           if torch.rand(1)[0] > alternative_train:
+#             loss = loss_a
+#           else:
+#             loss = loss_q
+#         # print(generated_a.data)
+#         # measure accuracy 
+#         acc1, acc5, acc10 = utils.accuracy(generated_a.data, target_answer.data, topk=(1, 5, 10))
+#         # bleu_score = calculate_bleu_score(generated_q.cpu().data, sample['question'], loader.dataset.wid_to_word)
+#         meters['acc1'].update(acc1.item(), n=batch_size)
+#         meters['acc5'].update(acc5.item(), n=batch_size)
+#         meters['acc10'].update(acc10.item(), n=batch_size)
+#         meters['loss_a'].update(loss_a.data.item(), n=batch_size)
+#         meters['loss_q'].update(loss_q.data.item(), n=batch_size)
+#         meters['dual_loss'].update(additional_loss.item(), n=batch_size)
+#         # meters['bleu_score'].update(bleu_score, n=batch_size)
+
+#         # compute gradient and do SGD step
+#         optimizer.zero_grad()
+#         loss.backward()
+#         torch.cuda.synchronize()
+#         optimizer.step()
+#         torch.cuda.synchronize()
+
+#         # measure elapsed time
+#         meters['batch_time'].update(time.time() - end, n=batch_size)
+#         end = time.time()
+
+#         if (i + 1) % print_freq == 0:
+#             print('[Train]\tEpoch: [{0}][{1}/{2}] '
+#                   'Time {batch_time.avg:.3f}\t'
+#                   'Data {data_time.avg:.3f}\t'
+#                   'A Loss: {loss_a.avg:.3f}, Q Loss: {loss_q.avg:.3f}, Dual Loss: {loss_d.avg:.3f}\t'
+#                   'Acc@1 {acc1.avg:.3f}\t'
+#                   'Acc@5 {acc5.avg:.3f}\t'
+#                   'Acc@10 {acc10.avg:.3f}\t'.format(
+#                    epoch, i + 1, len(loader),
+#                    batch_time=meters['batch_time'], data_time=meters['data_time'],
+#                    acc1=meters['acc1'], acc5=meters['acc5'], 
+#                    acc10=meters['acc10'], loss_a=meters['loss_a'], loss_q=meters['loss_q'], 
+#                    loss_d=meters['dual_loss']))
+
+#     print('[Train]\tEpoch: [{0}]'
+#                   'Time {batch_time.avg:.3f}\t'
+#                   'A Loss: {loss_a.avg:.3f}, Q Loss: {loss_q.avg:.3f}, Dual Loss: {loss_d.avg:.3f}\t'
+#                   'Acc@1 {acc1.avg:.3f}\t'
+#                   'Acc@5 {acc5.avg:.3f}\t'
+#                   'Acc@10 {acc10.avg:.3f}\t'.format(
+#                    epoch, 
+#                    batch_time=meters['batch_time'], 
+#                    acc1=meters['acc1'], acc5=meters['acc5'], 
+#                    acc10=meters['acc10'], loss_a=meters['loss_a'], loss_q=meters['loss_q'], 
+#                    loss_d=meters['dual_loss']))
+
+#     logger.log_meters('train', n=epoch)
+
+def new_train(loader, model, optimizer, logger, epoch, print_freq=10, dual_training=False, alternative_train = -1.):
     # switch to train mode
     model.train()
     model.set_testing(False)
 
     meters = logger.reset_meters('train')
     end = time.time()
-    for i, sample in enumerate(loader):
+    for i,  (imgs, captions, qlengths,  answers, cat, qindices) in enumerate(loader):
+        # print(imgs.shape)
+ 
+        # imgs = imgs.cuda()
+        # captions = captions.cuda()
+        # answers = answers.cuda()
+        # cat = cat.cuda()
 
-        batch_size = sample['visual'].size(0)
-
+        batch_size = imgs.size(0)
+        imgs = imgs.permute(0, 2, 1, 3)
         # measure data loading time
         meters['data_time'].update(time.time() - end, n=batch_size)
-        target_question = sample['question']
+        target_question = captions
         # To arrange the length of mini-batch by the descending order of question length
-        new_ids, lengths = process_lengths_sort(target_question) 
-        new_ids = Variable(new_ids).detach()
+        # new_ids, lengths = process_lengths_sort(target_question) 
+        new_ids = qindices.cuda()
         target_question = Variable(target_question.cuda())
-        input_visual = Variable(sample['visual'].cuda())
-        target_answer = Variable(sample['answer'].cuda( ))
+        input_visual = Variable(imgs.cuda())
+        target_answer = Variable(answers.cuda())
         
         # compute output
         output =  model(input_visual, target_question, target_answer)
@@ -42,10 +141,11 @@ def train(loader, model, optimizer, logger, epoch, print_freq=10, dual_training=
         torch.cuda.synchronize()
         
         # Hack for the compatability of reinforce() and DataParallel()
-        target_question = pack_padded_sequence(target_question.index_select(0, new_ids)[:, 1:], lengths, batch_first=True)[0]
-        output = pack_padded_sequence(generated_q.index_select(0, new_ids), lengths, batch_first=True)[0] 
-        loss_q = F.cross_entropy(output, target_question)
-        loss_a = F.cross_entropy(generated_a, target_answer)
+        target_question = pack_padded_sequence(target_question.index_select(0, new_ids)[:, 1:], qlengths, batch_first=True, enforce_sorted=False)
+        output = pack_padded_sequence(generated_q.index_select(0, new_ids), qlengths, batch_first=True, enforce_sorted=False) 
+        loss_q = F.cross_entropy(output.data, target_question.data)
+        # print(target_answer)
+        loss_a = F.cross_entropy(generated_a, target_answer[:, 0])
         if alternative_train > 1. or alternative_train < 0.:
           loss = loss_a + loss_q 
           if dual_training:
@@ -106,6 +206,7 @@ def train(loader, model, optimizer, logger, epoch, print_freq=10, dual_training=
 
     logger.log_meters('train', n=epoch)
 
+
 # def adjust_learning_rate(optimizer, epoch):
 #     """Sets the learning rate to the initial LR decayed by 10 every 30 epochs"""
 #     lr = args.lr * (0.1 ** (epoch // 30))
@@ -113,21 +214,83 @@ def train(loader, model, optimizer, logger, epoch, print_freq=10, dual_training=
 #         param_group['lr'] = lr
 
 
-def validate(loader, model, logger, epoch=0, print_freq=100):
+# def validate(loader, model, logger, epoch=0, print_freq=100):
+#     # switch to train mode
+#     model.eval()
+#     meters = logger.reset_meters('val')
+#     end = time.time()
+#     for i, sample in enumerate(loader):
+#         batch_size = sample['visual'].size(0)
+#         # measure data loading time
+#         meters['data_time'].update(time.time() - end, n=batch_size)
+#         target_question = sample['question']
+#         # To arrange the length of mini-batch by the descending order of question length
+#         new_ids, lengths = process_lengths_sort(target_question) 
+#         target_question = Variable(target_question.cuda( ), volatile=True)
+#         input_visual = Variable(sample['visual'].cuda( ), volatile=True)
+#         target_answer = Variable(sample['answer'].cuda( ), volatile=True)
+        
+#         # compute output
+#         output =  model(input_visual, target_question, target_answer)
+#         generated_a = output[0]
+#         generated_q = output[1]
+#         additional_loss =output[2].mean()
+#         torch.cuda.synchronize()
+        
+#         # Hack for the compatability of reinforce() and DataParallel()
+#         target_question = pack_padded_sequence(target_question.index_select(0, new_ids)[:, 1:], lengths, batch_first=True)[0]
+#         output = pack_padded_sequence(generated_q.index_select(0, new_ids), lengths, batch_first=True)[0] 
+#         loss_q = F.cross_entropy(output, target_question)
+#         loss_a = F.cross_entropy(generated_a, target_answer)
+#         # measure accuracy 
+#         acc1, acc5, acc10 = utils.accuracy(generated_a.data, target_answer.data, topk=(1, 5, 10))
+#         # bleu_score = calculate_bleu_score(generated_q.cpu().data, sample['question'], loader.dataset.wid_to_word)
+#         meters['acc1'].update(acc1.item(), n=batch_size)
+#         meters['acc5'].update(acc5.item(), n=batch_size)
+#         meters['acc10'].update(acc10.item(), n=batch_size)
+#         meters['loss_a'].update(loss_a.item(), n=batch_size)
+#         meters['loss_q'].update(loss_q.item(), n=batch_size)
+#         meters['dual_loss'].update(additional_loss.item(), n=batch_size)
+#         # measure elapsed time
+#         meters['batch_time'].update(time.time() - end, n=batch_size)
+#         # meters['bleu_score'].update(bleu_score, n=batch_size)
+#         end = time.time()
+            
+#     print('[Val]\tEpoch: [{0}]'
+#                   'Time {batch_time.avg:.3f}\t'
+#                   'A Loss: {loss_a.avg:.3f}, Q Loss: {loss_q.avg:.3f}, Dual Loss: {loss_d.avg:.3f}\t'
+#                   'Acc@1 {acc1.avg:.3f}\t'
+#                   'Acc@5 {acc5.avg:.3f}\t'
+#                   'Acc@10 {acc10.avg:.3f}\t'.format(
+#                    epoch, 
+#                    batch_time=meters['batch_time'], 
+#                    acc1=meters['acc1'], acc5=meters['acc5'], 
+#                    acc10=meters['acc10'], loss_a=meters['loss_a'], loss_q=meters['loss_q'], 
+#                    loss_d=meters['dual_loss']))
+
+#     logger.log_meters('val', n=epoch)
+#     return meters['acc1'].avg, meters['acc5'].avg, meters['acc10'].avg, meters['loss_q'].avg
+
+
+
+def new_validate(loader, model, logger, epoch=0, print_freq=100):
     # switch to train mode
     model.eval()
     meters = logger.reset_meters('val')
     end = time.time()
-    for i, sample in enumerate(loader):
-        batch_size = sample['visual'].size(0)
+    for i, (imgs, captions, qlengths,  answers, cat, qindices) in enumerate(loader):
+        batch_size = imgs.size(0)
+        imgs = imgs.permute(0, 2, 1, 3)
         # measure data loading time
         meters['data_time'].update(time.time() - end, n=batch_size)
-        target_question = sample['question']
+        target_question = captions
         # To arrange the length of mini-batch by the descending order of question length
-        new_ids, lengths = process_lengths_sort(target_question) 
-        target_question = Variable(target_question.cuda( ), volatile=True)
-        input_visual = Variable(sample['visual'].cuda( ), volatile=True)
-        target_answer = Variable(sample['answer'].cuda( ), volatile=True)
+        # new_ids, lengths = process_lengths_sort(target_question) 
+        new_ids = qindices.cuda()
+        lengths = qlengths
+        target_question = Variable(target_question.cuda())
+        input_visual = Variable(imgs.cuda())
+        target_answer = Variable(answers.cuda())
         
         # compute output
         output =  model(input_visual, target_question, target_answer)
@@ -137,19 +300,19 @@ def validate(loader, model, logger, epoch=0, print_freq=100):
         torch.cuda.synchronize()
         
         # Hack for the compatability of reinforce() and DataParallel()
-        target_question = pack_padded_sequence(target_question.index_select(0, new_ids)[:, 1:], lengths, batch_first=True)[0]
-        output = pack_padded_sequence(generated_q.index_select(0, new_ids), lengths, batch_first=True)[0] 
-        loss_q = F.cross_entropy(output, target_question)
-        loss_a = F.cross_entropy(generated_a, target_answer)
+        target_question = pack_padded_sequence(target_question.index_select(0, new_ids)[:, 1:], lengths, batch_first=True, enforce_sorted=False)
+        output = pack_padded_sequence(generated_q.index_select(0, new_ids), lengths, batch_first=True, enforce_sorted=False) 
+        loss_q = F.cross_entropy(output.data, target_question.data)
+        loss_a = F.cross_entropy(generated_a, target_answer[:,0])
         # measure accuracy 
         acc1, acc5, acc10 = utils.accuracy(generated_a.data, target_answer.data, topk=(1, 5, 10))
         # bleu_score = calculate_bleu_score(generated_q.cpu().data, sample['question'], loader.dataset.wid_to_word)
-        meters['acc1'].update(acc1[0], n=batch_size)
-        meters['acc5'].update(acc5[0], n=batch_size)
-        meters['acc10'].update(acc10[0], n=batch_size)
-        meters['loss_a'].update(loss_a.data[0], n=batch_size)
-        meters['loss_q'].update(loss_q.data[0], n=batch_size)
-        meters['dual_loss'].update(additional_loss.data[0], n=batch_size)
+        meters['acc1'].update(acc1.item(), n=batch_size)
+        meters['acc5'].update(acc5.item(), n=batch_size)
+        meters['acc10'].update(acc10.item(), n=batch_size)
+        meters['loss_a'].update(loss_a.item(), n=batch_size)
+        meters['loss_q'].update(loss_q.item(), n=batch_size)
+        meters['dual_loss'].update(additional_loss.item(), n=batch_size)
         # measure elapsed time
         meters['batch_time'].update(time.time() - end, n=batch_size)
         # meters['bleu_score'].update(bleu_score, n=batch_size)
@@ -169,8 +332,6 @@ def validate(loader, model, logger, epoch=0, print_freq=100):
 
     logger.log_meters('val', n=epoch)
     return meters['acc1'].avg, meters['acc5'].avg, meters['acc10'].avg, meters['loss_q'].avg
-
-
 # to generate single image result with beam search
 def generate(resized_img, cnn_model, vqg_model, ):
     raise NotImplementedError
@@ -204,9 +365,9 @@ def evaluate(loader, model, logger, print_freq=10, sampling_num=5):
         output_answer, g_answers, g_answers_score, generated_q = model(input_visual, input_question, input_answer)
         bleu_score = calculate_bleu_score(generated_q.cpu().data, sample['question'], loader.dataset.wid_to_word)
         acc1, acc5, acc10 = utils.accuracy(output_answer.cpu().data, target_answer, topk=(1, 5, 10))
-        meters['acc1'].update(acc1[0], n=batch_size)
-        meters['acc5'].update(acc5[0], n=batch_size)
-        meters['acc10'].update(acc10[0], n=batch_size)
+        meters['acc1'].update(acc1.item(), n=batch_size)
+        meters['acc5'].update(acc5.item(), n=batch_size)
+        meters['acc10'].update(acc10.item(), n=batch_size)
         meters['bleu_score'].update(bleu_score, n=batch_size)
         meters['Bleu_1'].update(nlg_metrics['Bleu_1'], n=batch_size)
         meters['Bleu_2'].update(nlg_metrics['Bleu_2'], n=batch_size)

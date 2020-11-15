@@ -41,9 +41,9 @@ class Abstract_Gen_Model(nn.Module):
     def __init__(self, vocab, opt):
         super(Abstract_Gen_Model, self).__init__()
         self.vocab = vocab
-        self.start = vocab.index('START') if 'START' in vocab else None
-        self.end = vocab.index('EOS')
-        self.unk = vocab.index('UNK')
+        self.start = vocab.index('<start>') if '<start>' in vocab else None
+        self.end = vocab.index('<end>')
+        self.unk = vocab.index('<unk>')
         self.classifier = nn.Linear(opt['dim_h'], len(self.vocab),  bias=False)
         self.embedder = nn.Embedding(len(self.vocab), opt['dim_embedding'])
         self.opt = opt

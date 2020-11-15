@@ -143,17 +143,17 @@ def remove_long_tail_train(examples, minwcount=0):
     print('Number of UNKs: %d/%d = %.2f%%' % (bad_count, total_words, bad_count*100.0/total_words))
 
     print('Insert the special UNK token')
-    vocab.append('UNK')
+    vocab.append('<unk>')
     for ex in examples:
         words = ex['question_words']
-        question = [w if counts.get(w,0) > minwcount else 'UNK' for w in words]
+        question = [w if counts.get(w,0) > minwcount else '<unk>' for w in words]
         ex['question_words_UNK'] = question
 
     return examples, vocab
 
 def remove_long_tail_test(examples, word_to_wid):
     for ex in examples:
-        ex['question_words_UNK'] = [w if w in word_to_wid else 'UNK' for w in ex['question_words']]
+        ex['question_words_UNK'] = [w if w in word_to_wid else '<unk>' for w in ex['question_words']]
     return examples
 
 def encode_question(examples, word_to_wid, maxlength=15, pad='left'):
@@ -164,7 +164,7 @@ def encode_question(examples, word_to_wid, maxlength=15, pad='left'):
         question = ex['question_words_UNK']
         for k, w in enumerate(question):
             # added by Yikang: To replace question mark to EOS
-            q = w.replace('?', 'EOS')
+            q = w.replace('?', '<end>')
             if k < maxlength:
                 if pad == 'right':
                     ex['question_wids'][k] = word_to_wid[q]
@@ -246,8 +246,8 @@ def vqa_processed(params):
 
     # The original code is from 1 without 'EOS'. Here we add 'EOS' as the index-0 word
     # In addition, we also add 'START' in consideration of the performance
-    print('Insert special [EOS] and [START] token')
-    top_words = ['EOS'] + top_words + ['START'] # EOS should be at the beginning, otherwise error occurs
+    print('Insert special [end] and [start] token')
+    top_words = ['<end>'] + top_words + ['<start>'] # EOS should be at the beginning, otherwise error occurs
     wid_to_word = {i:w for i,w in enumerate(top_words)}
     word_to_wid = {w:i for i,w in enumerate(top_words)}
 

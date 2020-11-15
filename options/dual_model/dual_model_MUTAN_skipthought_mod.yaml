@@ -37,7 +37,7 @@ model:
     arch_resnet: resnet152
     dim_v: 2048
     dim_q: 2400
-    dim_a: 510
+    dim_a: 310
     share_modules: False
     seq2vec:
         arch: skipthoughts
@@ -50,7 +50,7 @@ model:
         nb_glimpses: 2
         dim_hv: 310
         dim_hq: 310
-        dim_mm: 510
+        dim_mm: 310
         R: 5
         dropout_v: 0.5
         dropout_q: 0.5
@@ -67,8 +67,8 @@ model:
             dropout: 0.5
         fusion:
             dim_hv: 620
-            dim_hq: 510
-            dim_mm: 510
+            dim_hq: 310
+            dim_mm: 310
             R: 5
             dropout_v: 0.5
             dropout_q: 0.5

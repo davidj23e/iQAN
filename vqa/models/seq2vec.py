@@ -79,6 +79,7 @@ class TwoLSTM(nn.Module):
 def factory(vocab_words, opt):
     if opt['arch'] == 'skipthoughts':
         st_class = getattr(skipthoughts, opt['type'])
+        # print(vocab_words)
         seq2vec = st_class(opt['dir_st'],
                            vocab_words,
                            dropout=opt['dropout'],

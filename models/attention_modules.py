@@ -98,15 +98,16 @@ class Abstract_Attention_Module(nn.Module):
                         p=self.opt['attention']['dropout_v'],
                         training=self.training)
         x_v = self.conv_v_att(x_v)
+        # print("X_V size = ", x_v.size())
         if 'activation_v' in self.opt['attention']:
             x_v = getattr(F, self.opt['attention']['activation_v'])(x_v)
         x_v = x_v.view(batch_size,
                        self.opt['attention']['dim_v'],
                        width * height)
         x_v = x_v.transpose(1,2)
-
+        # print("X_V size = ", x_v.size())
         # Process question before fusion
-
+        # print("X_q size = ", x_q.size())
         if self.use_linear:
             x_q = F.dropout(x_q, p=self.opt['attention']['dropout_q'],
                              training=self.training)
@@ -116,13 +117,20 @@ class Abstract_Attention_Module(nn.Module):
 
 
 
+        # x_q = x_q.view(batch_size,
+        #                1,
+        #                self.opt['attention']['dim_q'])
+
         x_q = x_q.view(batch_size,
                        1,
                        self.opt['attention']['dim_q'])
+
         x_q = x_q.expand(batch_size,
                          width * height,
                          self.opt['attention']['dim_q'])
-
+        # print("X_Q size = ",x_q.size())
+        # print(batch_size)
+        # print("X_V size = ", x_v.size())        
         # First multimodal fusion
         x_att = self._fusion_att(x_v, x_q)
 
@@ -138,6 +146,7 @@ class Abstract_Attention_Module(nn.Module):
                            width,
                            height,
                            self.opt['attention']['dim_mm']) 
+        # print("Attention size = ",x_att.size())
         x_att = x_att.transpose(2,3).transpose(1,2)
         x_att = self.conv_att(x_att)
         x_att = x_att.view(batch_size,
@@ -149,6 +158,7 @@ class Abstract_Attention_Module(nn.Module):
             x_att = x_att.contiguous()
             x_att = x_att.view(batch_size, width*height)
             x_att = F.softmax(x_att, dim=1)
+            # print("New Attention size = ",x_att.size())
             list_att.append(x_att)
 
         # Apply attention vectors to input_v
@@ -164,8 +174,10 @@ class Abstract_Attention_Module(nn.Module):
                                  width * height,
                                  self.opt['dim_v'])
             x_v_att = torch.mul(x_att, x_v)
+            
             x_v_att = x_v_att.sum(1)
             x_v_att = x_v_att.view(batch_size, self.opt['dim_v'])
+            # print("Attention size = ",x_v_att.size())
             list_v_att.append(x_v_att)
 
         return list_v_att

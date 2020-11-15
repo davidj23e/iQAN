@@ -138,9 +138,12 @@ class MutanFusion2d(MutanFusion):
             input_v = input_v.contiguous()
         if not input_q.is_contiguous():
             input_q = input_q.contiguous()
+        # print(input_q.size())
         x_v = input_v.view(batch_size * weight_height, self.opt['dim_hv'])
         x_q = input_q.view(batch_size * weight_height, self.opt['dim_hq'])
+        # print(x_v.size(), x_q.size())
         x_mm = super().forward(x_v, x_q)
+        # print(x_mm.size())
         x_mm = x_mm.view(batch_size, weight_height, self.opt['dim_mm'])
         return x_mm
 

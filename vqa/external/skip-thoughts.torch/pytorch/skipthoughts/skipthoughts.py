@@ -94,7 +94,7 @@ class AbstractSkipThoughts(nn.Module):
 
     def _make_emb_state_dict(self, dictionary, parameters):
         weight = torch.zeros(len(self.vocab)+1, 620) # first dim = zeros -> +1
-        unknown_params = parameters[dictionary['UNK']]
+        unknown_params = parameters[dictionary['<unk>']]
         nb_unknown = 0
         for id_weight, word in enumerate(self.vocab):
             if word in dictionary:

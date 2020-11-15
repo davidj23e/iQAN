@@ -5,7 +5,11 @@ import yaml
 import json
 import click
 from pprint import pprint
-
+from data_loader import DatasetLoader, collate_fn
+from torch.utils.data import DataLoader
+from samplers import ValCategoriesSampler
+from vocab import load_vocab
+from torchvision import transforms
 import torch
 import torch.nn as nn
 import torch.backends.cudnn as cudnn
@@ -80,21 +84,46 @@ parser.add_argument('--beam_search', action='store_true', help='whether to use b
 parser.add_argument('--dual_training', action='store_true', help='Whether to use additional loss')
 
 parser.add_argument('--share_embeddings', action='store_true', help='Whether to share the embeddings')
-
-# parser.add_argument('--finetuning_conv_epoch', type=int, default=10, help='From which epoch to finetuning the conv layers')
+parser.add_argument('--partial', type=float, default=-1., 
+    help='Only use part of the VQA dataset. Valid range is (0, 1). [default: -1.]')
 
 parser.add_argument('--alternative_train', type=float, default=-1., 
     help='The sample rate for QG training. if [alternative_train] > 1 or < 0, then jointly train.')
 
-parser.add_argument('--partial', type=float, default=-1., 
-    help='Only use part of the VQA dataset. Valid range is (0, 1). [default: -1.]')
-
-
+parser.add_argument('--val-dataset', type=str,
+                        default='../proposedFewShotVQG/data/processed/latest_val_iq_dataset.hdf5',
+                        help='Path for train annotation json file.')
+parser.add_argument('--finetune-cats', type=str, default='../Few-Shot-IQ/finetune_task_cats.json')
+parser.add_argument('--alpha-c', type=float, default=1, metavar='A',
+                        help='regularization constant (default: 1)')
+parser.add_argument('--num-batch', type=int, default=32, metavar='N',
+                        help='batch size for training (default: 64)')
+parser.add_argument('--way', type=int, default=3) # Way number, how many classes in a task
+parser.add_argument('--train_query', type=int, default=10) # (Shot) The number of meta train samples for each class in a task
+parser.add_argument('--test_query', type=int, default=10) # The nu
+parser.add_argument('--vocab-path', type=str,
+                        default='../proposedFewShotVQG/data/processed/vocab_iq.json',
+                        help='Path for vocabulary wrapper.')
 best_acc1 = 0.
 best_acc5 = 0.
 best_acc10 = 0.
 best_loss_q = 1000.
 
+
+def catname2list(label_dict):
+    with open('../Few-Shot-IQ/data/processed/cat2name.json', 'r') as fid:
+        cats = json.load(fid)
+    label_list = []
+    for task_labels in label_dict:
+        temp_list = []
+        nameList = list(task_labels.values())[1]
+        # print(nameList)
+        for name in nameList:
+            temp_list.append(cats.index(name))
+        label_list.append(temp_list)
+    # print(label_list)
+    # exit()
+    return label_list
 
 
 def main():
@@ -137,71 +166,71 @@ def main():
 
     # Set datasets
     print('Loading dataset....',)
-    trainset = datasets.factory_VQA(options['vqa']['trainsplit'], options['vqa'], 
-                opt_coco=options.get('coco', None), 
-                opt_clevr=options.get('clevr', None),
-                opt_vgenome=options.get('vgnome', None))
-    train_loader = trainset.data_loader(batch_size=options['optim']['batch_size'],
-                                        num_workers=1,
-                                        shuffle=True)            
-    if options['vqa'].get('sample_concept', False):
-        options['model']['concept_num'] = len(trainset.cid_to_concept)
-    valset = datasets.factory_VQA('val', options['vqa'], 
-                opt_coco=options.get('coco', None), 
-                opt_clevr=options.get('clevr', None),
-                opt_vgenome=options.get('vgnome', None))
-    val_loader = valset.data_loader(batch_size=options['optim']['batch_size'],
-                                    num_workers=1)
-    test_loader = valset.data_loader(batch_size=1 if args.beam_search else options['optim']['batch_size'],
-                                      num_workers=1)
+    word_dict = load_vocab(args.vocab_path)
+    new_transform =  transforms.Compose([
+        transforms.ToTensor()])
+    vocabulary_size = len(word_dict)
+    transform = transforms.Compose([
+        transforms.ToTensor(),
+        transforms.ToPILImage(),
+        transforms.RandomResizedCrop(224,
+                                     scale=(1.00, 1.2),
+                                     ratio=(0.75, 1.3333333333333333)),
+        transforms.ToTensor(),
+        transforms.Normalize(mean=[0.485, 0.456, 0.406],
+                             std=[0.229, 0.224, 0.225])])
+    trainset = DatasetLoader(options['vqa'], args.val_dataset, 
+                             transform=new_transform, 
+                             max_examples=None)
+    valset = DatasetLoader(options['vqa'], args.val_dataset, 
+                             transform=new_transform, 
+                             max_examples=None)
+
+    with open(args.finetune_cats, 'r') as fid:
+        label_dict = json.load(fid)
+    label_combos = catname2list(label_dict)
+    train_sampler = ValCategoriesSampler(trainset.labeln, trainset.unique_labels,
+                                    label_combos,
+                                    # args.way,
+                                    args.train_query,
+                                    args.test_query)
+    
+    train_loader = DataLoader(trainset,
+                            batch_sampler=train_sampler,
+                            num_workers=8,
+                            collate_fn=collate_fn)  
+
+
+    val_sampler = ValCategoriesSampler(valset.labeln, valset.unique_labels,
+                                    label_combos,
+                                    # args.way,
+                                    args.train_query,
+                                    args.test_query)
+    
+    val_loader = DataLoader(valset,
+                            batch_sampler=val_sampler,
+                            num_workers=8,
+                            collate_fn=collate_fn)  
+
     print('Done.')
     print('Setting up the model...')
 
     # Set model, criterion and optimizer
     # assert options['model']['arch_resnet'] == options['coco']['arch'], 'Two [arch] should be set the same.'
     model = getattr(models, options['model']['arch'])(
-        options['model'], trainset.vocab_words(), trainset.vocab_answers())
+        options['model'], list(word_dict.idx2word.values()), valset.vocab_answers())
 
     if args.share_embeddings:
         model.set_share_parameters()
-    #  set_trainable(model.shared_conv_layer, False)
-
-    #optimizer = torch.optim.Adam([model.module.seq2vec.rnn.gru_cell.parameters()], options['optim']['lr'])
-    #optimizer = torch.optim.Adam(model.parameters(), options['optim']['lr'])
-
-    # optimizer = torch.optim.Adam([
-    #     {'params': model.attention.parameters(), },
-    #     {'params': model.seq2vec.parameters(), },
-    #     {'params': model.vqa_module.parameters(), },
-    #     {'params': list(model.vqg_module.parameters())[1:], 'weight_decay': 0.0},
-    #      # filter(lambda p: p.requires_grad, model.parameters())
-    #     ], lr=options['optim']['lr'], weight_decay=options['optim']['weight_decay'])
-
+ 
     optimizer = torch.optim.Adam(params=filter(lambda p: p.requires_grad, model.parameters()), 
         lr=options['optim']['lr'], weight_decay=options['optim']['weight_decay'])
 
     # Optionally resume from a checkpoint
     exp_logger = None
-    if args.resume:
-        print('Loading saved model...')
-        args.start_epoch, best_acc1, exp_logger = load_checkpoint(model, optimizer,#model.module, optimizer,
-            os.path.join(options['logs']['dir_logs'], args.resume))
-    else:
-        # Or create logs directory
-        if os.path.isdir(options['logs']['dir_logs']):
-            if click.confirm('Logs directory already exists in {}. Erase?'
-                .format(options['logs']['dir_logs'], default=False)):
-                os.system('rm -r ' + options['logs']['dir_logs'])
-            else:
-                return
-        os.system('mkdir -p ' + options['logs']['dir_logs'])
-        path_new_opt = os.path.join(options['logs']['dir_logs'],
-                       os.path.basename(args.path_opt))
-        path_args = os.path.join(options['logs']['dir_logs'], 'args.yaml')
-        with open(path_new_opt, 'w') as f:
-            yaml.dump(options, f, default_flow_style=False)
-        with open(path_args, 'w') as f:
-            yaml.dump(vars(args), f, default_flow_style=False)
+    # print('Loading saved model...')
+    # args.start_epoch, best_acc1, exp_logger = load_checkpoint(model, optimizer,#model.module, optimizer,
+    #       os.path.join(options['logs']['dir_logs'], args.resume))
         
     if exp_logger is None:
         # Set loggers
@@ -216,44 +245,34 @@ def main():
 
     # Begin evaluation and training
     model = model.cuda()
-    if args.evaluate:
-        print('Start evaluating...')
-        path_logger_json = os.path.join(options['logs']['dir_logs'], 'logger.json')
+    # if args.evaluate:
+    #     print('Start evaluating...')
+    #     path_logger_json = os.path.join(options['logs']['dir_logs'], 'logger.json')
 
-        evaluate_result = engine.evaluate(test_loader, model, exp_logger, args.print_freq)
+    #     evaluate_result = engine.evaluate(test_loader, model, exp_logger, args.print_freq)
     
-        pdb.set_trace()
-        save_results(evaluate_result, args.start_epoch, valset.split_name(),
-                         options['logs']['dir_logs'], options['vqa']['dir'])
+    #     pdb.set_trace()
+    #     save_results(evaluate_result, args.start_epoch, valset.split_name(),
+    #                      options['logs']['dir_logs'], options['vqa']['dir'])
 
-        return
+    #     return
 
     print('Start training')
     for epoch in range(args.start_epoch, options['optim']['epochs']):
-        #adjust_learning_rate(optimizer, epoch)selected_a.reinforce(reward.data.view(selected_a.size()))
-        # train for one epoch
-        # at first, the conv layers are fixed
-        # if epoch > args.finetuning_conv_epoch and to_set_trainable:
-        #     set_trainable(model.module.shared_conv_layer, True)
-        #     optimizer = select_optimizer(
-        #                     options['optim']['optimizer'], params=filter(lambda p: p.requires_grad, model.parameters()), 
-        #                     lr=options['optim']['lr'], weight_decay=options['optim']['weight_decay'])
-        #     to_set_trainable = False
-        # optimizer = adjust_optimizer(optimizer, epoch, regime)
-        engine.train(train_loader, model, optimizer,
+        engine.new_train(train_loader, model, optimizer,
                       exp_logger, epoch, args.print_freq, 
                       dual_training=args.dual_training, 
                       alternative_train=args.alternative_train)
 
         if options['vqa']['trainsplit'] == 'train':
             # evaluate on validation set
-            acc1, acc5, acc10, loss_q = engine.validate(test_loader, model,
+            acc1, acc5, acc10, loss_q = engine.new_validate(val_loader, model,
                                                 exp_logger, epoch, args.print_freq)
-            if (epoch + 1) % options['optim']['eval_epochs'] == 0:
-                #print('[epoch {}] evaluation:'.format(epoch))
-                evaluate_result = engine.evaluate(test_loader, model, exp_logger, args.print_freq)   #model.module, exp_logger, args.print_freq)
-                save_results(evaluate_result, epoch, valset.split_name(),
-                         options['logs']['dir_logs'], options['vqa']['dir'], is_testing=False)
+            # if (epoch + 1) % options['optim']['eval_epochs'] == 0:
+            #     #print('[epoch {}] evaluation:'.format(epoch))
+            #     evaluate_result = engine.evaluate(test_loader, model, exp_logger, args.print_freq)   #model.module, exp_logger, args.print_freq)
+            #     save_results(evaluate_result, epoch, valset.split_name(),
+            #              options['logs']['dir_logs'], options['vqa']['dir'], is_testing=False)
 
             # remember best prec@1 and save checkpoint
             is_best = acc1 > best_acc1
@@ -403,3 +422,6 @@ def load_checkpoint(model, optimizer, path_ckpt):
 
 if __name__ == '__main__':
     main()
+    parser.add_argument('--vocab-path', type=str,
+                        default='../proposedFewShotVQG/data/processed/vocab_iq.json',
+                        help='Path for vocabulary wrapper.')
