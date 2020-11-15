@@ -145,7 +145,8 @@ def new_train(loader, model, optimizer, logger, epoch, print_freq=10, dual_train
         output = pack_padded_sequence(generated_q.index_select(0, new_ids), qlengths, batch_first=True, enforce_sorted=False) 
         loss_q = F.cross_entropy(output.data, target_question.data)
         # print(target_answer)
-        loss_a = F.cross_entropy(generated_a, target_answer[:, 0])
+        _, target_answer = torch.max(target_answer, 1)
+        loss_a = F.cross_entropy(generated_a, target_answer)
         if alternative_train > 1. or alternative_train < 0.:
           loss = loss_a + loss_q 
           if dual_training:

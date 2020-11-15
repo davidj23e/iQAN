@@ -146,7 +146,8 @@ class Dual_Model(nn.Module):
         return answers, x_q, x_a_pred
     def _vqg_forward(self, input_v, target_a, input_q=None):
         # print("####### INSIDE VQG FORWARD###########")
-        x_a_embedding = self.answer_embeddings(target_a[:, 0]).squeeze(0)
+        _, target_a = torch.max(target_a, 1)
+        x_a_embedding = self.answer_embeddings(target_a).squeeze(0)
         # print("Answer embedding size", x_a_embedding.size())
         x_a_att = F.dropout(x_a_embedding, p=self.opt['attention']['dropout_q'],
                              training=self.training)

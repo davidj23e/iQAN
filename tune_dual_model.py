@@ -93,7 +93,7 @@ parser.add_argument('--alternative_train', type=float, default=-1.,
 parser.add_argument('--val-dataset', type=str,
                         default='../proposedFewShotVQG/data/processed/latest_val_iq_dataset.hdf5',
                         help='Path for train annotation json file.')
-parser.add_argument('--finetune-cats', type=str, default='../Few-Shot-IQ/finetune_task_cats.json')
+parser.add_argument('--finetune-cats', type=str, default='finetune_task_cats.json')
 parser.add_argument('--alpha-c', type=float, default=1, metavar='A',
                         help='regularization constant (default: 1)')
 parser.add_argument('--num-batch', type=int, default=32, metavar='N',
@@ -111,7 +111,7 @@ best_loss_q = 1000.
 
 
 def catname2list(label_dict):
-    with open('../Few-Shot-IQ/data/processed/cat2name.json', 'r') as fid:
+    with open('data/processed/cat2name.json', 'r') as fid:
         cats = json.load(fid)
     label_list = []
     for task_labels in label_dict:

@@ -30,10 +30,12 @@ def accuracy(output, target, topk=(1,)):
     if target.dim() == 2: # multians option
         _, target = torch.max(target, 1)
     correct = pred.eq(target.view(1, -1).expand_as(pred))
-
+    # print(pred.size())
+    # print(target.size())
+    # print(correct[:maxk].size())
     res = []
     for k in topk:
-        correct_k = correct[:k].view(-1).float().sum(0)
+        correct_k = correct[:k].reshape(-1).float().sum(0)
         res.append(correct_k.mul_(100.0 / batch_size))
     return res
 
