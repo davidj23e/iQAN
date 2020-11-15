@@ -17,11 +17,6 @@ vqa:
     concept_mincount: 30 
     ##### whether to sample all the answers
     all_ans: True
-coco:
-    dir: data/coco
-    arch: resnet152
-    mode: att
-    size: 448
     #conv: True
 optim:
     lr: 0.0001
