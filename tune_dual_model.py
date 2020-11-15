@@ -91,7 +91,7 @@ parser.add_argument('--alternative_train', type=float, default=-1.,
     help='The sample rate for QG training. if [alternative_train] > 1 or < 0, then jointly train.')
 
 parser.add_argument('--val-dataset', type=str,
-                        default='../proposedFewShotVQG/data/processed/latest_val_iq_dataset.hdf5',
+                        default='data/processed/latest_val_iq_dataset.hdf5',
                         help='Path for train annotation json file.')
 parser.add_argument('--finetune-cats', type=str, default='finetune_task_cats.json')
 parser.add_argument('--alpha-c', type=float, default=1, metavar='A',
@@ -102,7 +102,7 @@ parser.add_argument('--way', type=int, default=3) # Way number, how many classes
 parser.add_argument('--train_query', type=int, default=10) # (Shot) The number of meta train samples for each class in a task
 parser.add_argument('--test_query', type=int, default=10) # The nu
 parser.add_argument('--vocab-path', type=str,
-                        default='../proposedFewShotVQG/data/processed/vocab_iq.json',
+                        default='data/processed/vocab_iq.json',
                         help='Path for vocabulary wrapper.')
 best_acc1 = 0.
 best_acc5 = 0.
@@ -423,5 +423,5 @@ def load_checkpoint(model, optimizer, path_ckpt):
 if __name__ == '__main__':
     main()
     parser.add_argument('--vocab-path', type=str,
-                        default='../proposedFewShotVQG/data/processed/vocab_iq.json',
+                        default='data/processed/vocab_iq.json',
                         help='Path for vocabulary wrapper.')
