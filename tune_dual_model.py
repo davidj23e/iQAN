@@ -7,7 +7,7 @@ import click
 from pprint import pprint
 from data_loader import DatasetLoader, collate_fn
 from torch.utils.data import DataLoader
-from samplers import ValCategoriesSampler
+from samplers import ValCategoriesSampler, CategoriesSampler
 from vocab import load_vocab
 from torchvision import transforms
 import torch
@@ -90,6 +90,9 @@ parser.add_argument('--partial', type=float, default=-1.,
 parser.add_argument('--alternative_train', type=float, default=-1., 
     help='The sample rate for QG training. if [alternative_train] > 1 or < 0, then jointly train.')
 
+parser.add_argument('--train-dataset', type=str,
+                        default='data/processed/latest_train_iq_dataset.hdf5',
+                        help='Path for train annotation json file.')
 parser.add_argument('--val-dataset', type=str,
                         default='data/processed/latest_val_iq_dataset.hdf5',
                         help='Path for train annotation json file.')
@@ -179,36 +182,41 @@ def main():
         transforms.ToTensor(),
         transforms.Normalize(mean=[0.485, 0.456, 0.406],
                              std=[0.229, 0.224, 0.225])])
-    trainset = DatasetLoader(options['vqa'], args.val_dataset, 
-                             transform=new_transform, 
+    trainset = DatasetLoader(options['vqa'], args.train_dataset, 
+                             transform=new_transform,
+                             vocab=word_dict, 
                              max_examples=None)
-    valset = DatasetLoader(options['vqa'], args.val_dataset, 
-                             transform=new_transform, 
+    # trainset.wid_to_word = word_dict.idx2word.copy()
+    # trainset.word_to_wid = word_dict.word2idx.copy()
+    valset = DatasetLoader(options['vqa'], args.train_dataset, 
+                             transform=new_transform,
+                             vocab=word_dict, 
                              max_examples=None)
 
     with open(args.finetune_cats, 'r') as fid:
         label_dict = json.load(fid)
     label_combos = catname2list(label_dict)
-    train_sampler = ValCategoriesSampler(trainset.labeln, trainset.unique_labels,
-                                    label_combos,
-                                    # args.way,
-                                    args.train_query,
-                                    args.test_query)
+    # train_sampler = CategoriesSampler(trainset.labeln, trainset.unique_labels,
+    #                                 label_combos,
+    #                                 args.way,
+    #                                 args.train_query,
+    #                                 args.test_query)
     
     train_loader = DataLoader(trainset,
-                            batch_sampler=train_sampler,
+                            batch_size=200,
                             num_workers=8,
                             collate_fn=collate_fn)  
 
-
-    val_sampler = ValCategoriesSampler(valset.labeln, valset.unique_labels,
-                                    label_combos,
-                                    # args.way,
-                                    args.train_query,
-                                    args.test_query)
+    # valset.wid_to_word = word_dict.idx2word.copy()
+    # valset.word_to_wid = word_dict.word2idx.copy()
+    # val_sampler = CategoriesSampler(valset.labeln, valset.unique_labels,
+    #                                 label_combos,
+    #                                 # args.way,
+    #                                 args.train_query,
+    #                                 args.test_query)
     
     val_loader = DataLoader(valset,
-                            batch_sampler=val_sampler,
+                            batch_size=200,
                             num_workers=8,
                             collate_fn=collate_fn)  
 
@@ -218,7 +226,7 @@ def main():
     # Set model, criterion and optimizer
     # assert options['model']['arch_resnet'] == options['coco']['arch'], 'Two [arch] should be set the same.'
     model = getattr(models, options['model']['arch'])(
-        options['model'], list(word_dict.idx2word.values()), valset.vocab_answers())
+        options['model'], trainset.vocab_words(), trainset.vocab_answers())
 
     if args.share_embeddings:
         model.set_share_parameters()
@@ -382,7 +390,6 @@ def save_checkpoint(info, model, optim, dir_logs, save_model, save_all_from=None
             os.system('rm ' + path_ckpt_optim.format(info['epoch'] - 1))
     if not save_model:
         print('Warning train.py: checkpoint not saved')
-
 def load_checkpoint(model, optimizer, path_ckpt):
     path_ckpt_info  = path_ckpt + '_info.pth.tar'
     path_ckpt_model = path_ckpt + '_model.pth.tar'
@@ -422,6 +429,6 @@ def load_checkpoint(model, optimizer, path_ckpt):
 
 if __name__ == '__main__':
     main()
-    parser.add_argument('--vocab-path', type=str,
-                        default='data/processed/vocab_iq.json',
-                        help='Path for vocabulary wrapper.')
+    # parser.add_argument('--vocab-path', type=str,
+    #                     default='data/processed/vocab_iq.json',
+    #                     help='Path for vocabulary wrapper.')

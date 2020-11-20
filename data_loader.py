@@ -25,7 +25,7 @@ class DatasetLoader(data.Dataset):
     """Custom Dataset compatible with torch.utils.data.DataLoader.
     """
 
-    def __init__(self, opt, dataset, transform=None, max_examples=None,
+    def __init__(self, opt, dataset, transform=None, vocab=None, max_examples=None,
                  indices=None):
         """Set the path for images, captions and vocabulary wrapper.
 
@@ -43,8 +43,10 @@ class DatasetLoader(data.Dataset):
         self.indices = indices
         # self.annos_allowed = annos_allowed
         self.opt = copy.copy(opt)
-
-
+        self.word_to_wid = vocab.word2idx.copy()
+        self.wid_to_word = vocab.idx2word.copy()
+        # self.ans_to_aid = vocab.word2idx.copy()
+        # self.aid_to_ans = vocab.idx2word.copy()
 
         self.dir_raw = os.path.join(self.opt['dir'], 'raw')
         if not os.path.exists(self.dir_raw):
@@ -109,6 +111,8 @@ class DatasetLoader(data.Dataset):
         return subdir
     def vocab_answers(self):
         return self.aid_to_ans
+    def vocab_words(self):
+        return list(self.wid_to_word.values())
     def __getitem__(self, index):
         """Returns one data pair (image and caption).
         """
@@ -122,6 +126,8 @@ class DatasetLoader(data.Dataset):
 
         question = torch.from_numpy(question)
         answer = torch.from_numpy(answer)
+        # print(answer)
+        # exit()
         alength = answer.size(0) - answer.eq(0).sum(0).squeeze()
         qlength = question.size(0) - question.eq(0).sum(0).squeeze()
         if self.transform is not None:

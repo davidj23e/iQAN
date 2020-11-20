@@ -34,6 +34,7 @@ class Dual_Model(nn.Module):
         self.vocab_answers = vocab_answers
         self.vocab_words = vocab_words
         self.num_classes = len(self.vocab_answers)
+        print("NUmber of classes = ",self.num_classes)
 
         # VQA Modules
         self.seq2vec = seq2vec.factory(self.vocab_words, self.opt['seq2vec'])
@@ -76,7 +77,6 @@ class Dual_Model(nn.Module):
                                                      visual_embedding=False,
                                                      question_embedding=False)
             self.attention_vqg = getattr(attention_modules, opt['attention']['arch'])(opt, use_linear=False)
-            # print("Attention VQG = ", self.attention_vqg)
             self.list_linear_v_fusion_vqg = nn.ModuleList([
                 nn.Linear(self.opt['dim_v'], dim_h)
                 for i in range(self.opt['attention']['nb_glimpses'])])
@@ -113,11 +113,10 @@ class Dual_Model(nn.Module):
                 x_v = getattr(F, self.opt['vqa']['fusion']['activation_v'])(x_v)
             list_v.append(x_v)
         x_v = torch.cat(list_v, 1)
-        # print("Fusion Glimpses X_V size = ", x_v.size())
+
         return x_v
 
     def _vqa_forward(self, input_v, input_q):
-        # print("Inside VQA forward")
         x_q = self.seq2vec(input_q)
         # attention
         x_q_att = F.dropout(x_q, p=self.opt['attention']['dropout_q'],
@@ -127,43 +126,37 @@ class Dual_Model(nn.Module):
             x_q_att = getattr(F, self.opt['attention']['activation_q'])(x_q_att)
 
         att_v_list_vqa = self.attention_vqa(input_v, x_q_att)
-        # print("ATTLIST VQA = ", len(att_v_list_vqa))
         x_v_vqa = self._fusion_glimpses(att_v_list_vqa, self.list_linear_v_fusion_vqa)
         x_q = F.dropout(x_q,
                         p=self.opt['vqa']['fusion']['dropout_q'],
                         training=self.training)
         x_q = self.linear_q_fusion(x_q)
         x_q_transformed = getattr(F, self.opt['vqa']['fusion']['activation_q'])(x_q)
-        # Second multimodal fusion
+        # Second multimodal fusionx_a_att
         x_a_pred = self.fusion_classif_vqa(x_v_vqa, x_q_transformed)
         x_a = getattr(F, self.opt['vqa']['classif']['activation'])(x_a_pred)
         x_a = F.dropout(x_a,
                       p=self.opt['vqa']['classif']['dropout'],
                       training=self.training)
         answers = self.linear_classif(x_a)
-        # print("###############FUSION DONE##################")
-        # print(x_a.size())
         return answers, x_q, x_a_pred
     def _vqg_forward(self, input_v, target_a, input_q=None):
-        # print("####### INSIDE VQG FORWARD###########")
-        _, target_a = torch.max(target_a, 1)
-        x_a_embedding = self.answer_embeddings(target_a).squeeze(0)
-        # print("Answer embedding size", x_a_embedding.size())
+        # target_a = target_a[:, 1]
+        # print(target_a.size())
+        x_a_embedding = self.answer_embeddings(target_a).squeeze()
         x_a_att = F.dropout(x_a_embedding, p=self.opt['attention']['dropout_q'],
                              training=self.training)
+        # print(x_a_embedding.size())
+        # exit()
         x_a_att = self.linear_a_att(x_a_att)
         if 'activation_q' in self.opt['attention']:
             x_a_att = getattr(F, self.opt['attention']['activation_q'])(x_a_att)
         # attention
-        # print("BEFORE ATTENTION")
-        # print(input_v.size(), x_a_att.size())
         att_v_list_vqg = self.attention_vqg(input_v, x_a_att)
-        # print("Fusion glimpses = ", len(att_v_list_vqg))
         x_v_vqg = self._fusion_glimpses(att_v_list_vqg, self.list_linear_v_fusion_vqg)
-        
+
         x_a_embedding = self.linear_a_fusion(x_a_embedding)
         x_a = getattr(F, self.opt['vqg']['activation'])(x_a_embedding)
-        
         # Second multimodal fusion
         x_q_pred = self.fusion_classif_vqg(x_v_vqg, x_a)
         q_embedding = getattr(F, self.opt['vqg']['activation'])(x_q_pred)
@@ -171,7 +164,6 @@ class Dual_Model(nn.Module):
                       p=self.opt['vqg']['dropout'],
                       training=self.training)
         questions = self._generate_qestion(q_embedding, input_q, )
-        # print("###############DONE##################")
         return questions, x_q_pred, x_a_embedding
 
 

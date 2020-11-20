@@ -144,6 +144,8 @@ def save_dataset(image_dir1, image_dir2, questions, annotations, vocab, ans2cat,
         # print(q)
         d_questions[q_index, :length] = q
         answer = qid2ans[question_id]
+        print(answer)
+        item['answer_all'] = torch.zeros(len(self.aid_to_ans))
         a, length = process_text(answer, vocab,
                                  max_length=max_a_length)
         d_answers[q_index, :length] = a
@@ -160,13 +162,13 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
 
     # Inputs.
-    parser.add_argument('--image-dir', type=str, default='data/vqa/val2014',
+    parser.add_argument('--image-dir', type=str, default='data/vqa/train2014',
                         help='directory for resized images')
     parser.add_argument('--questions', type=str,
-                        default='data/vqa/v2_OpenEnded_mscoco_val2014_questions.json',
+                        default='data/vqa/v2_OpenEnded_mscoco_train2014_questions.json',
                         help='Path for val annotation file.')
     parser.add_argument('--annotations', type=str,
-                        default='data/vqa/v2_mscoco_val2014_annotations.json',
+                        default='data/vqa/v2_mscoco_train2014_annotations.json',
                         help='Path for val annotation file.')
     parser.add_argument('--cat2ans', type=str,
                         default='data/vqa/iq_dataset.json',
@@ -188,7 +190,7 @@ if __name__ == '__main__':
                         help='Size of images.')
     parser.add_argument('--max-q-length', type=int, default=20,
                         help='maximum sequence length for questions.')
-    parser.add_argument('--max-a-length', type=int, default=4,
+    parser.add_argument('--max-a-length', type=int, default=1,
                         help='maximum sequence length for answers.')
     args = parser.parse_args()
 
@@ -224,11 +226,11 @@ if __name__ == '__main__':
     with open(args.cat2name, 'w') as f:
         json.dump(cats, f)
     for cat in cat2ans:
-        if cat not in val_cat:
+        if cat in val_cat:
             continue
         for ans in cat2ans[cat]:
             ans2cat[ans] = cats.index(cat)
-    save_dataset(args.image_dir, 'data/vqa/val2014', args.questions, args.annotations, args.vocab_path,
+    save_dataset(args.image_dir, 'data/vqa/train2014', args.questions, args.annotations, args.vocab_path,
                  ans2cat, args.output, im_size=args.im_size,
                  max_q_length=args.max_q_length, max_a_length=args.max_a_length)
     print(('Wrote dataset to %s' % args.output))

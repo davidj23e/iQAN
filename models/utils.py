@@ -46,12 +46,19 @@ def adjust_optimizer(optimizer, epoch, config):
     return optimizer
 
 
-def translate_tokens(token_seq, wid_to_word, end_id = 0):
+def translate_tokens(token_seq, wid_to_word, end_id = "1"):
     sentence = []
+    
     for wid in token_seq:
+        wid = str(wid.item())
         if wid == end_id:
             break
-        sentence.append(wid_to_word[wid])
+        # print(wid.size())
+        try:
+            sentence.append(wid_to_word[wid])
+        except:
+            # print(wid)
+            pass
     return sentence
 
 def calculate_nlg_score(generated_question_tensor, reference_question_tensor, wid_to_word):

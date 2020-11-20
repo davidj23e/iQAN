@@ -10,9 +10,9 @@ from models.vec2seq import process_lengths_sort, process_lengths
 from nltk.translate.bleu_score import modified_precision as bleu_score
 from models.criterions import *
 from models.utils import translate_tokens, calculate_bleu_score
-
+from tqdm import tqdm
 import vqa.lib.logger as logger2
-
+import torch
 # def train(loader, model, optimizer, logger, epoch, print_freq=10, dual_training=False, alternative_train = -1.):
 #     # switch to train mode
 #     model.train()
@@ -113,15 +113,29 @@ def new_train(loader, model, optimizer, logger, epoch, print_freq=10, dual_train
 
     meters = logger.reset_meters('train')
     end = time.time()
-    for i,  (imgs, captions, qlengths,  answers, cat, qindices) in enumerate(loader):
+    tqdm_gen = tqdm(loader)
+    for i,  (imgs, captions, qlengths,  answers, cat, qindices) in enumerate(tqdm_gen):
         # print(imgs.shape)
- 
+        batch_size = imgs.size(0) 
         # imgs = imgs.cuda()
         # captions = captions.cuda()
         # answers = answers.cuda()
         # cat = cat.cuda()
+        num_classes = model.num_classes
+        # print(num_classes)
+        new_ans = torch.zeros((batch_size, 1)).long()
+        for s in range(batch_size):
+            ans = answers[s][1:]
+            for a in ans:
+                texta = loader.dataset.wid_to_word[str(a.item())]
+                try:
+                    aid = loader.dataset.ans_to_aid[texta]
+                    new_ans[s, 0] = aid
+                except KeyError:
+                    pass
+                
+                
 
-        batch_size = imgs.size(0)
         imgs = imgs.permute(0, 2, 1, 3)
         # measure data loading time
         meters['data_time'].update(time.time() - end, n=batch_size)
@@ -131,7 +145,7 @@ def new_train(loader, model, optimizer, logger, epoch, print_freq=10, dual_train
         new_ids = qindices.cuda()
         target_question = Variable(target_question.cuda())
         input_visual = Variable(imgs.cuda())
-        target_answer = Variable(answers.cuda())
+        target_answer = Variable(new_ans.cuda())
         
         # compute output
         output =  model(input_visual, target_question, target_answer)
@@ -145,7 +159,8 @@ def new_train(loader, model, optimizer, logger, epoch, print_freq=10, dual_train
         output = pack_padded_sequence(generated_q.index_select(0, new_ids), qlengths, batch_first=True, enforce_sorted=False) 
         loss_q = F.cross_entropy(output.data, target_question.data)
         # print(target_answer)
-        _, target_answer = torch.max(target_answer, 1)
+        # _, target_answer = torch.max(target_answer, 1)
+        target_answer = target_answer.squeeze()
         loss_a = F.cross_entropy(generated_a, target_answer)
         if alternative_train > 1. or alternative_train < 0.:
           loss = loss_a + loss_q 
@@ -282,6 +297,20 @@ def new_validate(loader, model, logger, epoch=0, print_freq=100):
     for i, (imgs, captions, qlengths,  answers, cat, qindices) in enumerate(loader):
         batch_size = imgs.size(0)
         imgs = imgs.permute(0, 2, 1, 3)
+        num_classes = model.num_classes
+        # print(num_classes)
+        new_ans = torch.zeros((batch_size, 1)).long()
+        for s in range(batch_size):
+            ans = answers[s][1:]
+            for a in ans:
+                texta = loader.dataset.wid_to_word[str(a.item())]
+                try:
+                    aid = loader.dataset.ans_to_aid[texta]
+                    new_ans[s, 0] = aid
+                except KeyError:
+                    pass
+                
+
         # measure data loading time
         meters['data_time'].update(time.time() - end, n=batch_size)
         target_question = captions
@@ -291,7 +320,7 @@ def new_validate(loader, model, logger, epoch=0, print_freq=100):
         lengths = qlengths
         target_question = Variable(target_question.cuda())
         input_visual = Variable(imgs.cuda())
-        target_answer = Variable(answers.cuda())
+        target_answer = Variable(new_ans.cuda())
         
         # compute output
         output =  model(input_visual, target_question, target_answer)
@@ -301,13 +330,35 @@ def new_validate(loader, model, logger, epoch=0, print_freq=100):
         torch.cuda.synchronize()
         
         # Hack for the compatability of reinforce() and DataParallel()
+        new_target_question = target_question[:, 1:]
         target_question = pack_padded_sequence(target_question.index_select(0, new_ids)[:, 1:], lengths, batch_first=True, enforce_sorted=False)
         output = pack_padded_sequence(generated_q.index_select(0, new_ids), lengths, batch_first=True, enforce_sorted=False) 
         loss_q = F.cross_entropy(output.data, target_question.data)
         loss_a = F.cross_entropy(generated_a, target_answer[:,0])
         # measure accuracy 
         acc1, acc5, acc10 = utils.accuracy(generated_a.data, target_answer.data, topk=(1, 5, 10))
+        # nlg_metrics = calculate_nlg_score(generated_q.cpu().data, target_question, loader.dataset.wid_to_word)
         # bleu_score = calculate_bleu_score(generated_q.cpu().data, sample['question'], loader.dataset.wid_to_word)
+        preds = []
+        gts = []
+        output = torch.argmax(generated_q, dim=2)
+        for j in range(batch_size):
+            new_question = output[j]
+            # print(new_question.size())
+            # break
+            new_q = new_target_question[j]
+            preds.append(translate_tokens(new_question, loader.dataset.wid_to_word))
+            gts.append(translate_tokens(new_q, loader.dataset.wid_to_word))
+
+
+        print('='*80)
+        print('GROUND TRUTH')
+        print(gts[:10])
+        print('-'*80)
+        print('PREDICTIONS')
+        print(preds[:10])
+        print('='*80)
+
         meters['acc1'].update(acc1.item(), n=batch_size)
         meters['acc5'].update(acc5.item(), n=batch_size)
         meters['acc10'].update(acc10.item(), n=batch_size)
@@ -318,7 +369,7 @@ def new_validate(loader, model, logger, epoch=0, print_freq=100):
         meters['batch_time'].update(time.time() - end, n=batch_size)
         # meters['bleu_score'].update(bleu_score, n=batch_size)
         end = time.time()
-            
+        break    
     print('[Val]\tEpoch: [{0}]'
                   'Time {batch_time.avg:.3f}\t'
                   'A Loss: {loss_a.avg:.3f}, Q Loss: {loss_q.avg:.3f}, Dual Loss: {loss_d.avg:.3f}\t'
@@ -361,10 +412,10 @@ def evaluate(loader, model, logger, print_freq=10, sampling_num=5):
         input_answer = Variable(sample['answer'].cuda( ), volatile=True)
         target_answer = sample['answer']
         input_question = Variable(sample['question'].cuda( ), volatile=True)
-        nlg_metrics = calculate_nlg_score(generated_q.cpu().data, sample['question'], loader.dataset.wid_to_word)
+        # nlg_metrics = calculate_nlg_score(generated_q.cpu().data, sample['question'], loader.dataset.wid_to_word)
 
         output_answer, g_answers, g_answers_score, generated_q = model(input_visual, input_question, input_answer)
-        bleu_score = calculate_bleu_score(generated_q.cpu().data, sample['question'], loader.dataset.wid_to_word)
+        # bleu_score = calculate_bleu_score(generated_q.cpu().data, sample['question'], loader.dataset.wid_to_word)
         acc1, acc5, acc10 = utils.accuracy(output_answer.cpu().data, target_answer, topk=(1, 5, 10))
         meters['acc1'].update(acc1.item(), n=batch_size)
         meters['acc5'].update(acc5.item(), n=batch_size)

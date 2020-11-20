@@ -328,7 +328,6 @@ class VQA2(AbstractVQA):
 #             #     item['concept'] = torch.zeros(len(self.cid_to_concept))
 #             #     for t_aid in item_vqa['concepts_cid']:
 #             #         item['concept'][t_aid] = 1 # use several-hots vectors to indicate which answers is sampled
-
 #         return item
 
 #     def __len__(self):
