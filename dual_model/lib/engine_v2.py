@@ -13,6 +13,7 @@ from models.utils import translate_tokens, calculate_bleu_score
 from tqdm import tqdm
 import vqa.lib.logger as logger2
 import torch
+from train_utils import process_lengths
 # def train(loader, model, optimizer, logger, epoch, print_freq=10, dual_training=False, alternative_train = -1.):
 #     # switch to train mode
 #     model.train()
@@ -125,8 +126,8 @@ def new_train(loader, model, optimizer, logger, epoch, print_freq=10, dual_train
         # print(num_classes)
         new_ans = torch.zeros((batch_size, 1)).long()
         for s in range(batch_size):
-            ans = answers[s][1:]
-            for a in ans:
+            a = answers[s][1]
+            if True:
                 texta = loader.dataset.wid_to_word[str(a.item())]
                 try:
                     aid = loader.dataset.ans_to_aid[texta]
@@ -153,10 +154,11 @@ def new_train(loader, model, optimizer, logger, epoch, print_freq=10, dual_train
         generated_q = output[1]
         additional_loss =output[2].mean()
         torch.cuda.synchronize()
-        
+        target_question = target_question[:, 1:]
+        decode_lengths = process_lengths(target_question)
         # Hack for the compatability of reinforce() and DataParallel()
-        target_question = pack_padded_sequence(target_question.index_select(0, new_ids)[:, 1:], qlengths, batch_first=True, enforce_sorted=False)
-        output = pack_padded_sequence(generated_q.index_select(0, new_ids), qlengths, batch_first=True, enforce_sorted=False) 
+        target_question = pack_padded_sequence(target_question, decode_lengths, batch_first=True, enforce_sorted=False)
+        output = pack_padded_sequence(generated_q, decode_lengths, batch_first=True, enforce_sorted=False) 
         loss_q = F.cross_entropy(output.data, target_question.data)
         # print(target_answer)
         # _, target_answer = torch.max(target_answer, 1)
@@ -292,6 +294,7 @@ def new_train(loader, model, optimizer, logger, epoch, print_freq=10, dual_train
 def new_validate(loader, model, logger, epoch=0, print_freq=100):
     # switch to train mode
     model.eval()
+    model.set_testing(False)
     meters = logger.reset_meters('val')
     end = time.time()
     for i, (imgs, captions, qlengths,  answers, cat, qindices) in enumerate(loader):
@@ -301,8 +304,8 @@ def new_validate(loader, model, logger, epoch=0, print_freq=100):
         # print(num_classes)
         new_ans = torch.zeros((batch_size, 1)).long()
         for s in range(batch_size):
-            ans = answers[s][1:]
-            for a in ans:
+            a = answers[s][1]
+            if True:
                 texta = loader.dataset.wid_to_word[str(a.item())]
                 try:
                     aid = loader.dataset.ans_to_aid[texta]

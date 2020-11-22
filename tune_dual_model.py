@@ -237,8 +237,8 @@ def main():
     # Optionally resume from a checkpoint
     exp_logger = None
     # print('Loading saved model...')
-    # args.start_epoch, best_acc1, exp_logger = load_checkpoint(model, optimizer,#model.module, optimizer,
-    #       os.path.join(options['logs']['dir_logs'], args.resume))
+    args.start_epoch, best_acc1, exp_logger = load_checkpoint(model, optimizer,#model.module, optimizer,
+          os.path.join(options['logs']['dir_logs'], args.resume))
         
     if exp_logger is None:
         # Set loggers
